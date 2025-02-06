@@ -1,2 +1,2 @@
 # rustlang-example
-Example of Rust Lang code
+Rust Lang code example
