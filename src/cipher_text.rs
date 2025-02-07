@@ -41,9 +41,16 @@ impl CipherText {
     /// ```
     pub fn enter_crib_try(&mut self, input: &str) {
         self.history.push(input.to_string());
-        let last_entry = self.history.iter().last().unwrap();
-        let chunks = xor_ascii_with_crib(&self.cipher_text, last_entry);
-        print_chunks(chunks, &self.regex_match_set);
+        let last_entry = self.history.last();
+        match last_entry {
+            Some(crib) => {
+                let chunks = xor_ascii_with_crib(&self.cipher_text, crib).unwrap_or_default();
+                print_chunks(chunks, &self.regex_match_set);
+            }
+            None => {
+                /* This should never happen as there should always be at least 1 history item */
+            }
+        }
     }
 
     /// Prints the history of crib attempts to the console. If there is no history to display, a message is printed
@@ -55,36 +62,45 @@ impl CipherText {
     /// cypher_text.enter_crib_try(&input);
     /// cypher_text.print_history();
     /// ```
-    pub fn print_history(&self) {
+    pub fn print_history(&self) -> io::Result<()> {
         if self.history.is_empty() {
             println!("[No history to display]");
-            return;
+            return Ok(());
         }
         println!("History of crib attempts:");
         for (index, item) in self.history.iter().enumerate() {
             print!("{}: {}", index, item);
         }
-        io::stdout().flush().expect("Failed to flush stdout");
+        io::stdout().flush()
     }
 }
 
 fn print_chunks(chunks: Vec<String>, regex_match_set: &Regex) {
     chunks.iter().enumerate().for_each(|(index, chunk)| {
-        let decoded = hex_to_ascii(chunk).unwrap();
-        let found = regex_match_set.find(&decoded);
-        match found {
-            Some(_) => {
-                println!("{}: {} *** (possible drag match)", index, decoded);
+        let decoded = hex_to_ascii(chunk);
+        match decoded {
+            Ok(decoded) => {
+                let found = regex_match_set.find(&decoded);
+                match found {
+                    Some(_) => {
+                        println!("{}: {} *** (possible drag match)", index, decoded);
+                    }
+                    None => {
+                        println!("{}: {}", index, decoded);
+                    }
+                }
             }
-            None => {
-                println!("{}: {}", index, decoded);
-            }
+            Err(_) => { /* Ignore parse errors (although this should not be reached typically) */ }
         }
     });
 }
 
-fn xor_ascii_with_crib(cipher_text: &str, crib: &str) -> Vec<String> {
+fn xor_ascii_with_crib(cipher_text: &str, crib: &str) -> Result<Vec<String>, ParseIntError> {
     let crib_in_hex = ascii_to_hex(crib);
+    // If the user enters a crib that is longer than the cipher text, return an empty vector
+    if crib_in_hex.len() > cipher_text.len() {
+        return Ok(vec![]);
+    }
     let length = cipher_text.len() - crib_in_hex.len() + 1;
 
     let mut chunks: Vec<String> = Vec::new();
@@ -95,10 +111,10 @@ fn xor_ascii_with_crib(cipher_text: &str, crib: &str) -> Vec<String> {
         } else {
             &cipher_text[i..attempt_slice]
         };
-        let xored = xor_strings(slice, &crib_in_hex);
+        let xored = xor_strings(slice, &crib_in_hex)?;
         chunks.push(xored);
     }
-    chunks
+    Ok(chunks)
 }
 
 fn ascii_to_hex(s: &str) -> String {
@@ -113,20 +129,20 @@ fn hex_to_ascii(s: &str) -> Result<String, ParseIntError> {
         .step_by(2)
         .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
         .collect();
-    let ascii_string = String::from_utf8(bytes?).unwrap();
+    let ascii_string = String::from_utf8(bytes?).unwrap_or_default();
     Ok(ascii_string)
 }
 
-fn xor_strings(a: &str, b: &str) -> String {
+fn xor_strings(a: &str, b: &str) -> Result<String, ParseIntError> {
     let mut result = String::new();
     let length = a.len().min(b.len());
     for i in 0..length {
-        let a_val = u8::from_str_radix(&a[i..i + 1], 16).unwrap();
-        let b_val = u8::from_str_radix(&b[i..i + 1], 16).unwrap();
+        let a_val = u8::from_str_radix(&a[i..i + 1], 16)?;
+        let b_val = u8::from_str_radix(&b[i..i + 1], 16)?;
         let xor_val = a_val ^ b_val;
         result.push_str(&format!("{:01x}", xor_val));
     }
-    result
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -145,8 +161,15 @@ mod tests {
     fn test_hex_to_ascii() {
         let input = "68656c6c6f";
         let expected = "hello";
-        let result = hex_to_ascii(input).unwrap();
-        assert_eq!(result, expected);
+        let result = hex_to_ascii(input);
+        assert!(matches!(result, Ok(ref s) if s == expected));
+    }
+
+    #[test]
+    fn test_hex_to_ascii_error() {
+        let input = "i am not hex";
+        let result = hex_to_ascii(input);
+        assert!(matches!(result, Err(ParseIntError { .. })));
     }
 
     #[test]
@@ -155,7 +178,7 @@ mod tests {
         let b = "776f726c64"; // "world" in hex
         let expected = "1f0a1e000b"; // XOR result in hex
         let result = xor_strings(a, b);
-        assert_eq!(result, expected);
+        assert!(matches!(result, Ok(ref s) if s == expected));
     }
 
     #[test]
@@ -166,6 +189,23 @@ mod tests {
             "5f525a0a584559115a50".to_string(), // XOR result for "hello" ^ "world"
         ];
         let result = xor_ascii_with_crib(cipher_text, crib);
-        assert_eq!(result, expected);
+        assert!(matches!(result, Ok(ref s) if *s == expected));
+    }
+
+    #[test]
+    fn test_xor_ascii_with_larger_text_than_crib() {
+        let cipher_text = "tiny";
+        let crib = "776f726c64"; // "world" in hex
+        let expected: Vec<String> = vec![]; // Empty vector as crib is larger than cipher text
+        let result = xor_ascii_with_crib(cipher_text, crib);
+        assert!(matches!(result, Ok(ref s) if *s == expected));
+    }
+
+    #[test]
+    fn test_xor_ascii_invalid_hex() {
+        let cipher_text = "Not hex";
+        let crib = "a"; // "world" in hex
+        let result = xor_ascii_with_crib(cipher_text, crib);
+        assert!(matches!(result, Err(ParseIntError { .. })));
     }
 }

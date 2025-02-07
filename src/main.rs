@@ -36,7 +36,7 @@ fn startup(cypher_text: &mut CipherText) -> io::Result<()> {
             startup(cypher_text)
         }
         Ok(CmdOptions::PrintHistory) => {
-            cypher_text.print_history();
+            cypher_text.print_history()?;
             options::print_options()?;
             startup(cypher_text)
         }
