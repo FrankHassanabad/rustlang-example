@@ -174,29 +174,27 @@ mod tests {
 
     #[test]
     fn test_xor_strings() {
-        let a = "68656c6c6f"; // "hello" in hex
-        let b = "776f726c64"; // "world" in hex
-        let expected = "1f0a1e000b"; // XOR result in hex
+        let a = "68656c6c6f";
+        let b = "776f726c64";
+        let expected = "1f0a1e000b";
         let result = xor_strings(a, b);
         assert!(matches!(result, Ok(ref s) if s == expected));
     }
 
     #[test]
     fn test_xor_ascii_with_crib() {
-        let cipher_text = "68656c6c6f776f726c64"; // "helloworld" in hex
-        let crib = "776f726c64"; // "world" in hex
-        let expected = vec![
-            "5f525a0a584559115a50".to_string(), // XOR result for "hello" ^ "world"
-        ];
+        let cipher_text = "68656c6c6f776f726c64";
+        let crib = "776f726c64";
+        let expected = vec!["5f525a0a584559115a50".to_string()];
         let result = xor_ascii_with_crib(cipher_text, crib);
         assert!(matches!(result, Ok(ref s) if *s == expected));
     }
 
     #[test]
-    fn test_xor_ascii_with_larger_text_than_crib() {
+    fn test_xor_ascii_with_crib_larger_than_text() {
         let cipher_text = "tiny";
-        let crib = "776f726c64"; // "world" in hex
-        let expected: Vec<String> = vec![]; // Empty vector as crib is larger than cipher text
+        let crib = "776f726c64";
+        let expected: Vec<String> = vec![];
         let result = xor_ascii_with_crib(cipher_text, crib);
         assert!(matches!(result, Ok(ref s) if *s == expected));
     }
@@ -204,7 +202,7 @@ mod tests {
     #[test]
     fn test_xor_ascii_invalid_hex() {
         let cipher_text = "Not hex";
-        let crib = "a"; // "world" in hex
+        let crib = "a";
         let result = xor_ascii_with_crib(cipher_text, crib);
         assert!(matches!(result, Err(ParseIntError { .. })));
     }
