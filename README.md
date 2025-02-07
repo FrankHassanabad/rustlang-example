@@ -161,7 +161,7 @@ The text of
 t lawl.bitcoiD *** (possible drag match)
 ```
 
-is where you can start to see more of the message being decryped. Feel free to explore the other options such as getting a hint
+is where you can start to see part of the message being decryped from the crib drag. Feel free to explore the other options such as getting a hint
 or if you want to you can reveal the message and then take parts of the message out to crib drag those.
 
 See https://samwho.dev/blog/toying-with-cryptography-crib-dragging/ for more information about crib dragging in general.
