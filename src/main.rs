@@ -51,8 +51,8 @@ fn startup(cypher_text: &mut CipherText) -> io::Result<()> {
             startup(cypher_text)
         }
         Ok(CmdOptions::Exit) => Ok(()),
-        Err(CmdOptionsError::Invalid(u32)) => {
-            println!("Invalid option of: {}", u32);
+        Err(CmdOptionsError::Invalid(i8)) => {
+            println!("Invalid option of: {}", i8);
             options::print_enter_option()?;
             startup(cypher_text)
         }
